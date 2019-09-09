@@ -55,13 +55,15 @@ class Bresenham(Elaboratable):
 
                 with m.If(self.i_start):
                     # Transpose the coordinates so we're always in the positive X and Y quadrant.
-                    dx, dy = Signal((self.width, True)), Signal((self.width, True))
+                    dx = Signal((self.width, True))
+                    dy = Signal((self.width, True))
                     m.d.comb += [
                         dx.eq(self.i_x0 - self.i_x1),
                         dy.eq(self.i_y0 - self.i_y1)
                     ]
 
-                    abs_dx, abs_dy = Signal(self.width), Signal(self.width)
+                    abs_dx = Signal(self.width)
+                    abs_dy = Signal(self.width)
                     m.d.comb += [
                         abs_dx.eq(Mux(dx < 0, -dx, dx)),
                         abs_dy.eq(Mux(dy < 0, -dy, dy))
@@ -69,8 +71,10 @@ class Bresenham(Elaboratable):
 
                     # Transpose if the angle is steep.
                     steep = Signal()
-                    x0, y0 = Signal(self.width), Signal(self.width)
-                    x1, y1 = Signal(self.width), Signal(self.width)
+                    x0 = Signal(self.width)
+                    y0 = Signal(self.width)
+                    x1 = Signal(self.width)
+                    y1 = Signal(self.width)
                     m.d.comb += [
                         steep.eq(abs_dx < abs_dy),
                         x0.eq(Mux(steep, self.i_y0, self.i_x0)),
@@ -95,7 +99,7 @@ class Bresenham(Elaboratable):
                         self.r_dy.eq(abs_dy),
 
                         self.r_error.eq(0),
-                        self.r_y_inc.eq(Mux(y1 > y0, +self.one, -self.one))
+                        self.r_y_inc.eq(Mux((~flip & (y0 < y1)) | (flip & (y1 < y0)), +self.one, -self.one))
                     ]
 
                     m.next = "NEXT-PIXEL"
@@ -118,7 +122,7 @@ class Bresenham(Elaboratable):
                 ]
 
                 # If error goes above threshold, update Y
-                with m.If(error >= self.r_dx):
+                with m.If(error > self.r_dx):
                     m.d.sync += [
                         self.r_y0.eq(self.r_y0 + self.r_y_inc),
                         self.r_error.eq(error - (self.r_dx << 1))
@@ -178,7 +182,6 @@ if __name__ == "__main__":
             o_y = yield dda.o_y
             o_last_pixel = yield dda.o_last
 
-            print(o_x / 16, o_y / 16)
             assert (o_x, o_y) == p
 
             yield dda.i_next.eq(1)
@@ -272,11 +275,7 @@ if __name__ == "__main__":
         sim.add_clock(1e-6)
         sim.run()
 
-    with pysim.Simulator(
-            dda,
-            gtkw_file=open("line225.gtkw", "w"),
-            vcd_file=open("line225.vcd", "w")
-            ) as sim:
+    with pysim.Simulator(dda) as sim:
         sim.add_sync_process(line225)
         sim.add_clock(1e-6)
         sim.run()
