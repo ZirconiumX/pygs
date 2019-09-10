@@ -54,8 +54,8 @@ class Bresenham(Elaboratable):
                 ]
 
                 # Transpose the coordinates so we're always in the positive X and Y quadrant.
-                dx = Signal((self.width, True))
-                dy = Signal((self.width, True))
+                dx = Signal((self.width + 1, True))
+                dy = Signal((self.width + 1, True))
                 m.d.comb += [
                     dx.eq(self.i_x0 - self.i_x1),
                     dy.eq(self.i_y0 - self.i_y1)
@@ -388,4 +388,4 @@ if __name__ == "__main__":
         sim.add_clock(1e-6)
         sim.run()
 
-    print("/*** TESTS PASSED ***/")
+    print("/*** UNIT TESTS PASSED ***/")
