@@ -61,32 +61,38 @@ class Bresenham(Elaboratable):
                     dy.eq(self.i_y0 - self.i_y1)
                 ]
 
-                abs_dx = Signal(self.width)
-                abs_dy = Signal(self.width)
-                m.d.comb += [
-                    abs_dx.eq(Mux(dx < 0, -dx, dx)),
-                    abs_dy.eq(Mux(dy < 0, -dy, dy))
-                ]
-
-                # Transpose if the angle is steep.
-                steep = Signal()
-                m.d.comb += steep.eq(abs_dx < abs_dy),
                 m.d.sync += [
-                    self.r_steep.eq(steep),
+                    self.r_x0.eq(self.i_x0),
+                    self.r_y0.eq(self.i_y0),
+                    self.r_x1.eq(self.i_x1),
+                    self.r_y1.eq(self.i_y1),
 
-                    self.r_x0.eq(Mux(steep, self.i_y0, self.i_x0)),
-                    self.r_y0.eq(Mux(steep, self.i_x0, self.i_y0)),
-                    self.r_x1.eq(Mux(steep, self.i_y1, self.i_x1)),
-                    self.r_y1.eq(Mux(steep, self.i_x1, self.i_y1)),
-
-                    self.r_dx.eq(Mux(steep, abs_dy, abs_dx)),
-                    self.r_dy.eq(Mux(steep, abs_dx, abs_dy))
+                    self.r_dx.eq(Mux(dx < 0, -dx, dx)),
+                    self.r_dy.eq(Mux(dy < 0, -dy, dy))
                 ]
 
                 with m.If(self.i_start):
-                    m.next = "SETUP"
+                    m.next = "TRANSPOSE"
 
-            with m.State("SETUP"):
+            with m.State("TRANSPOSE"):
+                # Transpose if the angle is steep.
+                steep = Signal()
+                m.d.comb += steep.eq(self.r_dx < self.r_dy),
+                m.d.sync += [
+                    self.r_steep.eq(steep),
+
+                    self.r_x0.eq(Mux(steep, self.r_y0, self.r_x0)),
+                    self.r_y0.eq(Mux(steep, self.r_x0, self.r_y0)),
+                    self.r_x1.eq(Mux(steep, self.r_y1, self.r_x1)),
+                    self.r_y1.eq(Mux(steep, self.r_x1, self.r_y1)),
+
+                    self.r_dx.eq(Mux(steep, self.r_dy, self.r_dx)),
+                    self.r_dy.eq(Mux(steep, self.r_dx, self.r_dy))
+                ]
+
+                m.next = "FLIP"
+
+            with m.State("FLIP"):
                 # (x0, y0) should be the bottom left coordinate.
                 flip = Signal()
                 m.d.comb += flip.eq(self.r_x1 < self.r_x0)
@@ -169,7 +175,7 @@ if __name__ == "__main__":
         # Wait for setup
         yield; yield
         yield dda.i_start.eq(0)
-        yield; yield
+        yield; yield; yield
 
         assert (yield dda.o_valid)
 
