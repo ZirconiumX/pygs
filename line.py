@@ -71,49 +71,39 @@ class Bresenham(Elaboratable):
 
                     # Transpose if the angle is steep.
                     steep = Signal()
-                    x0a = Signal(self.width)
-                    y0a = Signal(self.width)
-                    x1a = Signal(self.width)
-                    y1a = Signal(self.width)
-                    m.d.comb += [
-                        steep.eq(abs_dx < abs_dy),
-                        x0a.eq(Mux(steep, self.i_y0, self.i_x0)),
-                        y0a.eq(Mux(steep, self.i_x0, self.i_y0)),
-                        x1a.eq(Mux(steep, self.i_y1, self.i_x1)),
-                        y1a.eq(Mux(steep, self.i_x1, self.i_y1))
-                    ]
-                    m.d.sync += self.r_steep.eq(steep)
-
-                    # (x0, y0) should be the bottom left coordinate.
-                    flip = Signal()
-                    x0b = Signal(self.width)
-                    y0b = Signal(self.width)
-                    x1b = Signal(self.width)
-                    y1b = Signal(self.width)
-                    m.d.comb += [
-                        flip.eq(x1a < x0a),
-                        x0b.eq(Mux(flip, x1a, x0a)),
-                        y0b.eq(Mux(flip, y1a, y0a)),
-                        x1b.eq(Mux(flip, x0a, x1a)),
-                        y1b.eq(Mux(flip, y0a, y1a))
-                    ]
-
+                    m.d.comb += steep.eq(abs_dx < abs_dy),
                     m.d.sync += [
+                        self.r_steep.eq(steep),
+
+                        self.r_x0.eq(Mux(steep, self.i_y0, self.i_x0)),
+                        self.r_y0.eq(Mux(steep, self.i_x0, self.i_y0)),
+                        self.r_x1.eq(Mux(steep, self.i_y1, self.i_x1)),
+                        self.r_y1.eq(Mux(steep, self.i_x1, self.i_y1)),
+
                         self.r_dx.eq(Mux(steep, abs_dy, abs_dx)),
-                        self.r_dy.eq(Mux(steep, abs_dx, abs_dy)),
-
-                        self.r_error.eq(0),
-                        self.r_y_inc.eq(Mux(y0b < y1b, +self.one, -self.one))
+                        self.r_dy.eq(Mux(steep, abs_dx, abs_dy))
                     ]
 
-                    m.d.sync += [
-                        self.r_x0.eq(x0b),
-                        self.r_y0.eq(y0b),
-                        self.r_x1.eq(x1b),
-                        self.r_y1.eq(y1b)
-                    ]
+                    m.next = "SETUP"
 
-                    m.next = "NEXT-PIXEL"
+            with m.State("SETUP"):
+                # (x0, y0) should be the bottom left coordinate.
+                flip = Signal()
+                m.d.comb += flip.eq(self.r_x1 < self.r_x0)
+
+                m.d.sync += [
+                    self.r_error.eq(0),
+                    self.r_y_inc.eq(Mux(flip ^ (self.r_y0 < self.r_y1), +self.one, -self.one))
+                ]
+
+                m.d.sync += [
+                    self.r_x0.eq(Mux(flip, self.r_x1, self.r_x0)),
+                    self.r_y0.eq(Mux(flip, self.r_y1, self.r_y0)),
+                    self.r_x1.eq(Mux(flip, self.r_x0, self.r_x1)),
+                    self.r_y1.eq(Mux(flip, self.r_y0, self.r_y1))
+                ]
+
+                m.next = "NEXT-PIXEL"
 
             with m.State("NEXT-PIXEL"):
                 # Output current coordinates
@@ -335,6 +325,44 @@ if __name__ == "__main__":
             ]
         )
 
+    def line180():
+        yield from line_test(
+            start=(0, 10 << 4),
+            end=(0 << 4, 0 << 4),
+            points=[
+                (0 << 4, 0 << 4),
+                (0 << 4, 1 << 4),
+                (0 << 4, 2 << 4),
+                (0 << 4, 3 << 4),
+                (0 << 4, 4 << 4),
+                (0 << 4, 5 << 4),
+                (0 << 4, 6 << 4),
+                (0 << 4, 7 << 4),
+                (0 << 4, 8 << 4),
+                (0 << 4, 9 << 4),
+                (0 << 4, 10 << 4)
+            ]
+        )
+
+    def line270():
+        yield from line_test(
+            start=(10 << 4, 0),
+            end=(0 << 4, 0 << 4),
+            points=[
+                (0 << 4, 0 << 4),
+                (1 << 4, 0 << 4),
+                (2 << 4, 0 << 4),
+                (3 << 4, 0 << 4),
+                (4 << 4, 0 << 4),
+                (5 << 4, 0 << 4),
+                (6 << 4, 0 << 4),
+                (7 << 4, 0 << 4),
+                (8 << 4, 0 << 4),
+                (9 << 4, 0 << 4),
+                (10 << 4, 0 << 4)
+            ]
+        )
+
     with pysim.Simulator(dda) as sim:
         sim.add_sync_process(line0)
         sim.add_clock(1e-6)
@@ -342,6 +370,16 @@ if __name__ == "__main__":
 
     with pysim.Simulator(dda) as sim:
         sim.add_sync_process(line90)
+        sim.add_clock(1e-6)
+        sim.run()
+
+    with pysim.Simulator(dda) as sim:
+        sim.add_sync_process(line180)
+        sim.add_clock(1e-6)
+        sim.run()
+
+    with pysim.Simulator(dda) as sim:
+        sim.add_sync_process(line270)
         sim.add_clock(1e-6)
         sim.run()
 
