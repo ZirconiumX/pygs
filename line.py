@@ -53,37 +53,37 @@ class Bresenham(Elaboratable):
                     self.o_last.eq(0)
                 ]
 
+                # Transpose the coordinates so we're always in the positive X and Y quadrant.
+                dx = Signal((self.width, True))
+                dy = Signal((self.width, True))
+                m.d.comb += [
+                    dx.eq(self.i_x0 - self.i_x1),
+                    dy.eq(self.i_y0 - self.i_y1)
+                ]
+
+                abs_dx = Signal(self.width)
+                abs_dy = Signal(self.width)
+                m.d.comb += [
+                    abs_dx.eq(Mux(dx < 0, -dx, dx)),
+                    abs_dy.eq(Mux(dy < 0, -dy, dy))
+                ]
+
+                # Transpose if the angle is steep.
+                steep = Signal()
+                m.d.comb += steep.eq(abs_dx < abs_dy),
+                m.d.sync += [
+                    self.r_steep.eq(steep),
+
+                    self.r_x0.eq(Mux(steep, self.i_y0, self.i_x0)),
+                    self.r_y0.eq(Mux(steep, self.i_x0, self.i_y0)),
+                    self.r_x1.eq(Mux(steep, self.i_y1, self.i_x1)),
+                    self.r_y1.eq(Mux(steep, self.i_x1, self.i_y1)),
+
+                    self.r_dx.eq(Mux(steep, abs_dy, abs_dx)),
+                    self.r_dy.eq(Mux(steep, abs_dx, abs_dy))
+                ]
+
                 with m.If(self.i_start):
-                    # Transpose the coordinates so we're always in the positive X and Y quadrant.
-                    dx = Signal((self.width, True))
-                    dy = Signal((self.width, True))
-                    m.d.comb += [
-                        dx.eq(self.i_x0 - self.i_x1),
-                        dy.eq(self.i_y0 - self.i_y1)
-                    ]
-
-                    abs_dx = Signal(self.width)
-                    abs_dy = Signal(self.width)
-                    m.d.comb += [
-                        abs_dx.eq(Mux(dx < 0, -dx, dx)),
-                        abs_dy.eq(Mux(dy < 0, -dy, dy))
-                    ]
-
-                    # Transpose if the angle is steep.
-                    steep = Signal()
-                    m.d.comb += steep.eq(abs_dx < abs_dy),
-                    m.d.sync += [
-                        self.r_steep.eq(steep),
-
-                        self.r_x0.eq(Mux(steep, self.i_y0, self.i_x0)),
-                        self.r_y0.eq(Mux(steep, self.i_x0, self.i_y0)),
-                        self.r_x1.eq(Mux(steep, self.i_y1, self.i_x1)),
-                        self.r_y1.eq(Mux(steep, self.i_x1, self.i_y1)),
-
-                        self.r_dx.eq(Mux(steep, abs_dy, abs_dx)),
-                        self.r_dy.eq(Mux(steep, abs_dx, abs_dy))
-                    ]
-
                     m.next = "SETUP"
 
             with m.State("SETUP"):
@@ -115,19 +115,10 @@ class Bresenham(Elaboratable):
                 ]
 
                 # Calculate next coordinates
-                error = Signal(self.width)
-                m.d.comb += error.eq(self.r_error + (self.r_dy << 1))
-
-                m.d.sync += self.r_x0.eq(self.r_x0 + self.one)
-
-                # If error goes above threshold, update Y
-                with m.If(error > self.r_dx):
-                    m.d.sync += [
-                        self.r_y0.eq(self.r_y0 + self.r_y_inc),
-                        self.r_error.eq(error - (self.r_dx << 1))
-                    ]
-                with m.Else():
-                    m.d.sync += self.r_error.eq(error)
+                m.d.sync += [
+                    self.r_error.eq(self.r_error + (self.r_dy << 1)),
+                    self.r_x0.eq(self.r_x0 + self.one)
+                ]
 
                 with m.If(self.o_last):
                     m.next = "FINISH"
@@ -135,7 +126,15 @@ class Bresenham(Elaboratable):
                     m.next = "WAIT"
                 
             # Wait for pixel acknowledgement before continuing.
+            # While waiting, pre-calculate the next coordinates.
             with m.State("WAIT"):
+                # If error goes above threshold, update Y
+                with m.If(self.r_error > self.r_dx):
+                    m.d.sync += [
+                        self.r_y0.eq(self.r_y0 + self.r_y_inc),
+                        self.r_error.eq(self.r_error - (self.r_dx << 1))
+                    ]
+
                 with m.If(self.i_next):
                     m.next = "NEXT-PIXEL"
 
