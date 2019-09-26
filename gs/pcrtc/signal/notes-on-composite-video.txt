@@ -1,0 +1,17 @@
+# Four phases of video
+
+An analogue TV signal such as composite video can be split into four phases for horizontal video.
+
+- First, there is a synchronisation pulse to mark the beginning of a new line (horizontal sync).
+- Then there is a period between the sync pulse and the actual video, known as the "back porch"; no video is drawn within the back porch. However, there is a brief burst of signal to synchronise the GPU and monitor's colour oscillators, called the "colour burst".
+- Then the actual video is displayed by modulating the brightness and colour together, known variously as the "display phase" or "active video".
+- Finally, there is a brief pause to mark the end of the line before the next one appears, called the "front porch".
+
+Some explanations put the front porch at the front of the line, but specifications state the front porch is at the end of a line and I'll follow them.
+
+For vertical video, the phases are similar but different.
+
+- First, there is a series of long synchronisation pulses to mark the beginning of a new frame (vertical sync).
+- Then, there is a series of short synchronisation pulses, in the "back porch".
+- Then, the actual video is displayed along the horizontal lines.
+- Finally, there is a series of short synchronisation pulses, in the "front porch".
