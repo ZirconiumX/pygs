@@ -5,22 +5,22 @@ class Dither(Elaboratable):
     def __init__(self):
         self.i_enable = Signal()    # Whether to perform dithering
 
-        self.i_dm00   = Signal(8)  # (0, 0) dither matrix
-        self.i_dm01   = Signal(8)  # (1, 0) dither matrix
-        self.i_dm02   = Signal(8)  # (2, 0) dither matrix
-        self.i_dm03   = Signal(8)  # (3, 0) dither matrix
-        self.i_dm10   = Signal(8)  # (0, 1) dither matrix
-        self.i_dm11   = Signal(8)  # (1, 1) dither matrix
-        self.i_dm12   = Signal(8)  # (2, 1) dither matrix
-        self.i_dm13   = Signal(8)  # (3, 1) dither matrix
-        self.i_dm20   = Signal(8)  # (0, 2) dither matrix
-        self.i_dm21   = Signal(8)  # (1, 2) dither matrix
-        self.i_dm22   = Signal(8)  # (2, 2) dither matrix
-        self.i_dm23   = Signal(8)  # (3, 2) dither matrix
-        self.i_dm30   = Signal(8)  # (0, 3) dither matrix
-        self.i_dm31   = Signal(8)  # (1, 3) dither matrix
-        self.i_dm32   = Signal(8)  # (2, 3) dither matrix
-        self.i_dm33   = Signal(8)  # (3, 3) dither matrix
+        self.i_dm00   = Signal((3, True))  # (0, 0) dither matrix
+        self.i_dm01   = Signal((3, True))  # (1, 0) dither matrix
+        self.i_dm02   = Signal((3, True))  # (2, 0) dither matrix
+        self.i_dm03   = Signal((3, True))  # (3, 0) dither matrix
+        self.i_dm10   = Signal((3, True))  # (0, 1) dither matrix
+        self.i_dm11   = Signal((3, True))  # (1, 1) dither matrix
+        self.i_dm12   = Signal((3, True))  # (2, 1) dither matrix
+        self.i_dm13   = Signal((3, True))  # (3, 1) dither matrix
+        self.i_dm20   = Signal((3, True))  # (0, 2) dither matrix
+        self.i_dm21   = Signal((3, True))  # (1, 2) dither matrix
+        self.i_dm22   = Signal((3, True))  # (2, 2) dither matrix
+        self.i_dm23   = Signal((3, True))  # (3, 2) dither matrix
+        self.i_dm30   = Signal((3, True))  # (0, 3) dither matrix
+        self.i_dm31   = Signal((3, True))  # (1, 3) dither matrix
+        self.i_dm32   = Signal((3, True))  # (2, 3) dither matrix
+        self.i_dm33   = Signal((3, True))  # (3, 3) dither matrix
 
         self.i_rgbrndr = Signal()   # Whether to render this pixel's RGB; Off or On
         self.i_arndr   = Signal()   # Whether to render this pixel's Alpha; Off or On

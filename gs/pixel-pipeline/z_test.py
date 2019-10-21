@@ -1,6 +1,6 @@
 from enum import IntEnum
 from nmigen import Elaboratable, Signal, Module
-from nmigen.back import rtlil
+from nmigen.back import rtlil, pysim
 
 
 class ZTestMode(IntEnum):
@@ -96,4 +96,324 @@ if __name__ == "__main__":
         ztst.o_red, ztst.o_green, ztst.o_blue, ztst.o_alpha,
     ]
 
-    print(rtlil.convert(ztst, ports=ports))
+    # print(verilog.convert(ztst, ports=ports))
+
+    import random
+
+    with pysim.Simulator(ztst, gtkw_file=open("ztst.gtkw", "w"), vcd_file=open("ztst.vcd", "w")) as sim:
+        # ZTE = 0
+        # Not hardware verified!
+        def zte_off():
+            for rgbrndr in range(2):
+                for arndr in range(2):
+                    for zrndr in range(2):
+                        for test in range(4):
+                            red, green, blue, alpha = random.randint(0, 255), random.randint(0, 255), random.randint(0, 255), random.randint(0, 255)
+                            x, y, z = random.randint(0, 2**16 - 1), random.randint(0, 2**16 - 1), random.randint(0, 2**32 - 1)
+                            zref = random.randint(0, 2**32 - 1)
+
+                            yield ztst.i_enable.eq(0)
+                            yield ztst.i_test.eq(test)
+                            yield ztst.i_zref.eq(zref)
+
+                            yield ztst.i_rgbrndr.eq(rgbrndr)
+                            yield ztst.i_arndr.eq(arndr)
+                            yield ztst.i_zrndr.eq(zrndr)
+
+                            yield ztst.i_red.eq(red)
+                            yield ztst.i_green.eq(green)
+                            yield ztst.i_blue.eq(blue)
+                            yield ztst.i_alpha.eq(alpha)
+
+                            yield ztst.i_x_coord.eq(x)
+                            yield ztst.i_y_coord.eq(y)
+                            yield ztst.i_z_coord.eq(z)	
+
+                            yield; yield
+
+                            # After this pass, nothing should change with ZTE = 0
+
+                            assert (yield ztst.i_enable) == 0
+                            assert (yield ztst.i_test) == test
+                            assert (yield ztst.i_zref) == zref
+
+                            assert (yield ztst.i_rgbrndr) == rgbrndr
+                            assert (yield ztst.i_arndr) == arndr
+                            assert (yield ztst.i_zrndr) == zrndr
+
+                            assert (yield ztst.i_red) == red
+                            assert (yield ztst.i_green) == green
+                            assert (yield ztst.i_blue) == blue
+                            assert (yield ztst.i_alpha) == alpha
+
+                            assert (yield ztst.i_x_coord) == x
+                            assert (yield ztst.i_y_coord) == y
+                            assert (yield ztst.i_z_coord) == z
+
+                            assert (yield ztst.o_rgbrndr) == rgbrndr
+                            assert (yield ztst.o_arndr) == arndr
+                            assert (yield ztst.o_zrndr) == zrndr
+
+                            assert (yield ztst.o_red) == red
+                            assert (yield ztst.o_green) == green
+                            assert (yield ztst.o_blue) == blue
+                            assert (yield ztst.o_alpha) == alpha
+
+                            assert (yield ztst.o_x_coord) == x
+                            assert (yield ztst.o_y_coord) == y
+                            assert (yield ztst.o_z_coord) == z
+
+        # ZTE = 1; ZTST = NEVER
+        # Not hardware verified!
+        def ztst_never():
+            for rgbrndr in range(2):
+                for arndr in range(2):
+                    for zrndr in range(2):
+                        red, green, blue, alpha = random.randint(0, 255), random.randint(0, 255), random.randint(0, 255), random.randint(0, 255)
+                        x, y, z = random.randint(0, 2**16 - 1), random.randint(0, 2**16 - 1), random.randint(0, 2**32 - 1)
+                        zref = random.randint(0, 2**32 - 1)
+
+                        yield ztst.i_enable.eq(1)
+                        yield ztst.i_test.eq(ZTestMode.NEVER)
+                        yield ztst.i_zref.eq(zref)
+
+                        yield ztst.i_rgbrndr.eq(rgbrndr)
+                        yield ztst.i_arndr.eq(arndr)
+                        yield ztst.i_zrndr.eq(zrndr)
+
+                        yield ztst.i_red.eq(red)
+                        yield ztst.i_green.eq(green)
+                        yield ztst.i_blue.eq(blue)
+                        yield ztst.i_alpha.eq(alpha)
+
+                        yield ztst.i_x_coord.eq(x)
+                        yield ztst.i_y_coord.eq(y)
+                        yield ztst.i_z_coord.eq(z)  
+
+                        yield; yield
+
+                        # After this pass, all channels should fail
+
+                        assert (yield ztst.i_enable) == 1
+                        assert (yield ztst.i_test) == ZTestMode.NEVER
+                        assert (yield ztst.i_zref) == zref
+
+                        assert (yield ztst.i_rgbrndr) == rgbrndr
+                        assert (yield ztst.i_arndr) == arndr
+                        assert (yield ztst.i_zrndr) == zrndr
+
+                        assert (yield ztst.i_red) == red
+                        assert (yield ztst.i_green) == green
+                        assert (yield ztst.i_blue) == blue
+                        assert (yield ztst.i_alpha) == alpha
+
+                        assert (yield ztst.i_x_coord) == x
+                        assert (yield ztst.i_y_coord) == y
+                        assert (yield ztst.i_z_coord) == z
+
+                        assert (yield ztst.o_rgbrndr) == 0
+                        assert (yield ztst.o_arndr) == 0
+                        assert (yield ztst.o_zrndr) == 0
+
+                        assert (yield ztst.o_red) == red
+                        assert (yield ztst.o_green) == green
+                        assert (yield ztst.o_blue) == blue
+                        assert (yield ztst.o_alpha) == alpha
+
+                        assert (yield ztst.o_x_coord) == x
+                        assert (yield ztst.o_y_coord) == y
+                        assert (yield ztst.o_z_coord) == z
+                   
+        # ZTE = 1; ZTST = ALWAYS
+        # Not hardware verified!
+        def ztst_always():
+            for rgbrndr in range(2):
+                for arndr in range(2):
+                    for zrndr in range(2):
+                        red, green, blue, alpha = random.randint(0, 255), random.randint(0, 255), random.randint(0, 255), random.randint(0, 255)
+                        x, y, z = random.randint(0, 2**16 - 1), random.randint(0, 2**16 - 1), random.randint(0, 2**32 - 1)
+                        zref = random.randint(0, 2**32 - 1)
+
+                        yield ztst.i_enable.eq(1)
+                        yield ztst.i_test.eq(ZTestMode.ALWAYS)
+                        yield ztst.i_zref.eq(zref)
+
+                        yield ztst.i_rgbrndr.eq(rgbrndr)
+                        yield ztst.i_arndr.eq(arndr)
+                        yield ztst.i_zrndr.eq(zrndr)
+
+                        yield ztst.i_red.eq(red)
+                        yield ztst.i_green.eq(green)
+                        yield ztst.i_blue.eq(blue)
+                        yield ztst.i_alpha.eq(alpha)
+
+                        yield ztst.i_x_coord.eq(x)
+                        yield ztst.i_y_coord.eq(y)
+                        yield ztst.i_z_coord.eq(z)  
+
+                        yield; yield
+
+                        # After this pass, all channels should fail
+
+                        assert (yield ztst.i_enable) == 1
+                        assert (yield ztst.i_test) == ZTestMode.ALWAYS
+                        assert (yield ztst.i_zref) == zref
+
+                        assert (yield ztst.i_rgbrndr) == rgbrndr
+                        assert (yield ztst.i_arndr) == arndr
+                        assert (yield ztst.i_zrndr) == zrndr
+
+                        assert (yield ztst.i_red) == red
+                        assert (yield ztst.i_green) == green
+                        assert (yield ztst.i_blue) == blue
+                        assert (yield ztst.i_alpha) == alpha
+
+                        assert (yield ztst.i_x_coord) == x
+                        assert (yield ztst.i_y_coord) == y
+                        assert (yield ztst.i_z_coord) == z
+
+                        assert (yield ztst.o_rgbrndr) == rgbrndr
+                        assert (yield ztst.o_arndr) == arndr
+                        assert (yield ztst.o_zrndr) == zrndr
+
+                        assert (yield ztst.o_red) == red
+                        assert (yield ztst.o_green) == green
+                        assert (yield ztst.o_blue) == blue
+                        assert (yield ztst.o_alpha) == alpha
+
+                        assert (yield ztst.o_x_coord) == x
+                        assert (yield ztst.o_y_coord) == y
+                        assert (yield ztst.o_z_coord) == z
+
+        # ZTE = 1; ZTST = GEQUAL
+        # Not hardware verified!
+        def ztst_gequal():
+            for rgbrndr in range(2):
+                for arndr in range(2):
+                    for zrndr in range(2):
+                        red, green, blue, alpha = random.randint(0, 255), random.randint(0, 255), random.randint(0, 255), random.randint(0, 255)
+                        x, y, z = random.randint(0, 2**16 - 1), random.randint(0, 2**16 - 1), random.randint(0, 2**32 - 1)
+                        zref = random.randint(0, 2**32 - 1)
+
+                        yield ztst.i_enable.eq(1)
+                        yield ztst.i_test.eq(ZTestMode.GEQUAL)
+                        yield ztst.i_zref.eq(zref)
+
+                        yield ztst.i_rgbrndr.eq(rgbrndr)
+                        yield ztst.i_arndr.eq(arndr)
+                        yield ztst.i_zrndr.eq(zrndr)
+
+                        yield ztst.i_red.eq(red)
+                        yield ztst.i_green.eq(green)
+                        yield ztst.i_blue.eq(blue)
+                        yield ztst.i_alpha.eq(alpha)
+
+                        yield ztst.i_x_coord.eq(x)
+                        yield ztst.i_y_coord.eq(y)
+                        yield ztst.i_z_coord.eq(z)  
+
+                        yield; yield
+
+                        # After this pass, all channels should fail
+
+                        assert (yield ztst.i_enable) == 1
+                        assert (yield ztst.i_test) == ZTestMode.GEQUAL
+                        assert (yield ztst.i_zref) == zref
+
+                        assert (yield ztst.i_rgbrndr) == rgbrndr
+                        assert (yield ztst.i_arndr) == arndr
+                        assert (yield ztst.i_zrndr) == zrndr
+
+                        assert (yield ztst.i_red) == red
+                        assert (yield ztst.i_green) == green
+                        assert (yield ztst.i_blue) == blue
+                        assert (yield ztst.i_alpha) == alpha
+
+                        assert (yield ztst.i_x_coord) == x
+                        assert (yield ztst.i_y_coord) == y
+                        assert (yield ztst.i_z_coord) == z
+
+                        assert (yield ztst.o_rgbrndr) == (z >= zref and rgbrndr)
+                        assert (yield ztst.o_arndr) == (z >= zref and arndr)
+                        assert (yield ztst.o_zrndr) == (z >= zref and zrndr)
+
+                        assert (yield ztst.o_red) == red
+                        assert (yield ztst.o_green) == green
+                        assert (yield ztst.o_blue) == blue
+                        assert (yield ztst.o_alpha) == alpha
+
+                        assert (yield ztst.o_x_coord) == x
+                        assert (yield ztst.o_y_coord) == y
+                        assert (yield ztst.o_z_coord) == z
+
+        # ZTE = 1; ZTST = GREATER
+        # Not hardware verified!
+        def ztst_greater():
+            for rgbrndr in range(2):
+                for arndr in range(2):
+                    for zrndr in range(2):
+                        red, green, blue, alpha = random.randint(0, 255), random.randint(0, 255), random.randint(0, 255), random.randint(0, 255)
+                        x, y, z = random.randint(0, 2**16 - 1), random.randint(0, 2**16 - 1), random.randint(0, 2**32 - 1)
+                        zref = random.randint(0, 2**32 - 1)
+
+                        yield ztst.i_enable.eq(1)
+                        yield ztst.i_test.eq(ZTestMode.GREATER)
+                        yield ztst.i_zref.eq(zref)
+
+                        yield ztst.i_rgbrndr.eq(rgbrndr)
+                        yield ztst.i_arndr.eq(arndr)
+                        yield ztst.i_zrndr.eq(zrndr)
+
+                        yield ztst.i_red.eq(red)
+                        yield ztst.i_green.eq(green)
+                        yield ztst.i_blue.eq(blue)
+                        yield ztst.i_alpha.eq(alpha)
+
+                        yield ztst.i_x_coord.eq(x)
+                        yield ztst.i_y_coord.eq(y)
+                        yield ztst.i_z_coord.eq(z)  
+
+                        yield; yield
+
+                        # After this pass, all channels should fail
+
+                        assert (yield ztst.i_enable) == 1
+                        assert (yield ztst.i_test) == ZTestMode.GREATER
+                        assert (yield ztst.i_zref) == zref
+
+                        assert (yield ztst.i_rgbrndr) == rgbrndr
+                        assert (yield ztst.i_arndr) == arndr
+                        assert (yield ztst.i_zrndr) == zrndr
+
+                        assert (yield ztst.i_red) == red
+                        assert (yield ztst.i_green) == green
+                        assert (yield ztst.i_blue) == blue
+                        assert (yield ztst.i_alpha) == alpha
+
+                        assert (yield ztst.i_x_coord) == x
+                        assert (yield ztst.i_y_coord) == y
+                        assert (yield ztst.i_z_coord) == z
+
+                        assert (yield ztst.o_rgbrndr) == (z > zref and rgbrndr)
+                        assert (yield ztst.o_arndr) == (z > zref and arndr)
+                        assert (yield ztst.o_zrndr) == (z > zref and zrndr)
+
+                        assert (yield ztst.o_red) == red
+                        assert (yield ztst.o_green) == green
+                        assert (yield ztst.o_blue) == blue
+                        assert (yield ztst.o_alpha) == alpha
+
+                        assert (yield ztst.o_x_coord) == x
+                        assert (yield ztst.o_y_coord) == y
+                        assert (yield ztst.o_z_coord) == z
+
+        def tests():
+            yield from zte_off()
+            yield from ztst_never()
+            yield from ztst_always()
+            yield from ztst_gequal()
+            yield from ztst_greater()
+
+        sim.add_sync_process(tests)
+        sim.add_clock(1e-6)
+        sim.run()

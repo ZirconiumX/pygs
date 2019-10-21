@@ -1,8 +1,9 @@
 from nmigen import Elaboratable, Module, Signal
-from nmigen.back import rtlil
+from nmigen.back import rtlil, verilog
 
 from alpha_blend import AlphaBlend
 from alpha_test import AlphaTest
+from clamp import Clamp
 from dest_alpha_test import DestinationAlphaTest
 from dither import Dither
 from z_test import ZTest
@@ -54,6 +55,18 @@ class PixelPipeline(Elaboratable):
         # DTHE - Dither Enable
         self.i_dthe_dthe  = Signal()  # Whether to perform dithering
 
+        # COLCLAMP - Colour Clamping Enable
+        self.i_colclamp   = Signal()  # Whether to saturate or overflow colour channels
+
+        # FBA - Framebuffer Alpha Correction value
+        self.i_fba_fba    = Signal()  # Value ORed with most significant bit of alpha channel.
+
+        # FRAME - Framebuffer Settings
+        self.i_frame_psm  = Signal(6) # Framebuffer pixel storage format
+
+        # ZBUF - Z Buffer Settings
+        self.i_zbuf_psm   = Signal(4) # Z buffer pixel storage format
+
         self.i_rgbrndr = Signal()   # Whether to render this pixel's RGB; Off or On
         self.i_arndr   = Signal()   # Whether to render this pixel's Alpha; Off or On
         self.i_zrndr   = Signal()   # Whether to update this pixel's Z; Off or On
@@ -66,9 +79,6 @@ class PixelPipeline(Elaboratable):
         self.i_green   = Signal(8)  # Q8.0; Pixel Green Channel
         self.i_blue    = Signal(8)  # Q8.0; Pixel Blue Channel
         self.i_alpha   = Signal(8)  # Q8.0; Pixel Alpha (Transparency) Channel
-
-        self.i_fbpxfmt = Signal(6)  # Framebuffer Pixel Format
-        self.i_zbfmt   = Signal(6)  # Z Buffer Format
 
         self.o_rgbrndr = Signal()   # Whether to render this pixel's RGB; Off or On
         self.o_arndr   = Signal()   # Whether to render this pixel's Alpha; Off or On
@@ -91,6 +101,7 @@ class PixelPipeline(Elaboratable):
         m.submodules.z_test = z_test = ZTest()
         m.submodules.alpha_blend = alpha_blend = AlphaBlend()
         m.submodules.dither = dither = Dither()
+        m.submodules.clamp = clamp = Clamp()
 
         m.d.sync += [
             # TODO: Is this synchronous or combinational? (Matters for timing)
@@ -113,7 +124,7 @@ class PixelPipeline(Elaboratable):
             alpha_test.i_blue.eq(self.i_blue),
             alpha_test.i_alpha.eq(self.i_alpha),
 
-            alpha_test.i_fbpxfmt.eq(self.i_fbpxfmt),
+            alpha_test.i_fbpxfmt.eq(self.i_frame_psm),
 
             # alpha_test -> dest_alpha
             dest_alpha.i_enable.eq(self.i_test_date),
@@ -132,7 +143,7 @@ class PixelPipeline(Elaboratable):
             dest_alpha.i_blue.eq(alpha_test.o_blue),
             dest_alpha.i_alpha.eq(alpha_test.o_alpha),
 
-            dest_alpha.i_fbpxfmt.eq(self.i_fbpxfmt),
+            dest_alpha.i_fbpxfmt.eq(self.i_frame_psm),
             
             # dest_alpha -> z_test
             z_test.i_enable.eq(self.i_test_zte),
@@ -176,7 +187,7 @@ class PixelPipeline(Elaboratable):
             alpha_blend.i_blue.eq(z_test.o_blue),
             alpha_blend.i_alpha.eq(z_test.o_alpha),
 
-            alpha_blend.i_fbpxfmt.eq(self.i_fbpxfmt),
+            alpha_blend.i_fbpxfmt.eq(self.i_frame_psm),
 
             # alpha_blend -> dither
             dither.i_enable.eq(self.i_dthe_dthe),
@@ -211,19 +222,36 @@ class PixelPipeline(Elaboratable):
             dither.i_blue.eq(alpha_blend.o_blue),
             dither.i_alpha.eq(alpha_blend.o_alpha),
 
-            # dither -> output
-            self.o_rgbrndr.eq(dither.o_rgbrndr),
-            self.o_arndr.eq(dither.o_arndr),
-            self.o_zrndr.eq(dither.o_zrndr),
+            # dither -> clamp
+            clamp.i_clamp.eq(self.i_colclamp),
+            clamp.i_alphcor.eq(self.i_fba_fba),
 
-            self.o_x_coord.eq(dither.o_x_coord),
-            self.o_y_coord.eq(dither.o_y_coord),
-            self.o_z_coord.eq(dither.o_z_coord),
+            clamp.i_rgbrndr.eq(dither.o_rgbrndr),
+            clamp.i_arndr.eq(dither.o_arndr),
+            clamp.i_zrndr.eq(dither.o_zrndr),
 
-            self.o_red.eq(dither.o_red),
-            self.o_green.eq(dither.o_green),
-            self.o_blue.eq(dither.o_blue),
-            self.o_alpha.eq(dither.o_alpha)
+            clamp.i_x_coord.eq(dither.o_x_coord),
+            clamp.i_y_coord.eq(dither.o_y_coord),
+            clamp.i_z_coord.eq(dither.o_z_coord),
+
+            clamp.i_red.eq(dither.o_red),
+            clamp.i_green.eq(dither.o_green),
+            clamp.i_blue.eq(dither.o_blue),
+            clamp.i_alpha.eq(dither.o_alpha),
+
+            # clamp -> output
+            self.o_rgbrndr.eq(clamp.o_rgbrndr),
+            self.o_arndr.eq(clamp.o_arndr),
+            self.o_zrndr.eq(clamp.o_zrndr),
+
+            self.o_x_coord.eq(clamp.o_x_coord),
+            self.o_y_coord.eq(clamp.o_y_coord),
+            self.o_z_coord.eq(clamp.o_z_coord),
+
+            self.o_red.eq(clamp.o_red),
+            self.o_green.eq(clamp.o_green),
+            self.o_blue.eq(clamp.o_blue),
+            self.o_alpha.eq(clamp.o_alpha)
          ]
 
         return m
@@ -241,15 +269,17 @@ if __name__ == "__main__":
         pipe.i_test_ate, pipe.i_test_atst, pipe.i_test_aref, pipe.i_test_afail,
         pipe.i_test_date, pipe.i_test_datm,
         pipe.i_test_zte, pipe.i_test_ztst,
+        pipe.i_colclamp,
+        pipe.i_fba_fba,
+        pipe.i_frame_psm, pipe.i_zbuf_psm,
 
         pipe.i_rgbrndr, pipe.i_arndr, pipe.i_zrndr,
         pipe.i_x_coord, pipe.i_y_coord, pipe.i_z_coord,
         pipe.i_red, pipe.i_green, pipe.i_blue, pipe.i_alpha,
-        pipe.i_fbpxfmt, pipe.i_zbfmt,
 
         pipe.o_rgbrndr, pipe.o_arndr, pipe.o_zrndr,
         pipe.o_x_coord, pipe.o_y_coord, pipe.o_z_coord,
         pipe.o_red, pipe.o_green, pipe.o_blue, pipe.o_alpha
     ]
 
-    print(rtlil.convert(pipe, ports=ports))
+    print(verilog.convert(pipe, ports=ports))

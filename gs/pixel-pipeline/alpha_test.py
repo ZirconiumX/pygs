@@ -1,6 +1,6 @@
 from enum import IntEnum
 from nmigen import Elaboratable, Signal, Module
-from nmigen.back import rtlil
+from nmigen.back import rtlil, verilog
 
 from common import PixelFormat
 
@@ -149,4 +149,4 @@ if __name__ == "__main__":
         atst.o_red, atst.o_green, atst.o_blue, atst.o_alpha,
     ]
 
-    print(rtlil.convert(atst, ports=ports))
+    print(verilog.convert(atst, ports=ports))
